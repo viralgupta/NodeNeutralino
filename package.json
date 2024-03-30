@@ -1,0 +1,46 @@
+{
+  "package-name": "node-neutralino",
+  "version": "1.0.0",
+  "description": "wrapper project for neutralinojs backend app",
+  "entry point": "./build/index.js",
+  "main": "./build/index.js",
+  "license": "MIT",
+  "author": {
+    "name": "Neutralinojs and contributors",
+    "email": "neutralinojs@gmail.com",
+    "url": "https://neutralino.js.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neutralinojs/neutralinojs-cli.git"
+  },
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "serve": "node dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "neutralinojs",
+    "neu",
+    "cross-platform",
+    "framework",
+    "desktop-framework",
+    "lightweight",
+    "cpp",
+    "javascript",
+    "desktop",
+    "webview",
+    "chrome",
+    "browser",
+    "codezri"
+  ],
+  "dependencies": {
+    "uuid": "^9.0.1",
+    "websocket": "^1.0.34"
+  }
+}

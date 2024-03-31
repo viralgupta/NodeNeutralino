@@ -4,119 +4,7 @@ const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const constants = require("./constants.js")
 const path = require("path");
-
-let retryHandler = null;
-let authInfo = null;
-let ws = null;
-const nativeCalls = {};
-const offlineMessageQueue = [];
-
-const startWebsocket = () => {
-  authInfo = getAuthInfo();
-
-  if (!authInfo) {
-    retryLater();
-    return;
-  }
-  ws =
-    new WS(`ws://127.0.0.1:${authInfo.nlPort}?extensionId=js.neutralino.devtools
-                  &connectToken=${authInfo.nlConnectToken}`);
-
-  ws.onerror = () => {
-    retryLater();
-  };
-
-  ws.onopen = () => {
-    console.log("Connected with the application.");
-  };
-
-  ws.onclose = () => {
-    console.log("Connection closed.");
-  };
-
-  ws.onmessage = (e) => {
-    if (typeof e.data === "string") {
-      const message = JSON.parse(e.data);
-      console.log("Received message: ", message);
-
-      if (message.id && message.id in nativeCalls) {
-        // Native call response
-        if (message.data?.error) {
-          nativeCalls[message.id].reject(message.data.error);
-          if (message.data.error.code == 'NE_RT_INVTOKN') {
-            // Invalid native method token
-            handleNativeMethodTokenError();
-          }
-        }
-        else if (message.data?.success) {
-          nativeCalls[message.id]
-            .resolve(message.data.hasOwnProperty('returnValue') ? message.data.returnValue
-              : message.data);
-        }
-        delete nativeCalls[message.id];
-      }
-    }
-  }
-};
-
-const stopWebsocket = () => {
-  if (retryHandler) {
-    clearTimeout(retryHandler);
-  }
-  if (ws) {
-    ws.close();
-    if (fs.existsSync(constants.files.authFile)) {
-      fs.unlinkSync(constants.files.authFile);
-    }
-  }
-};
-
-const sendMessage = (method, data) => {
-  return new Promise((resolve, reject) => {
-    // if (ws?.readyState != WebSocket.OPEN) {
-    if (ws?.readyState != 1) {
-      offlineMessageQueue.push({ method, data, resolve, reject });
-      return;
-    }
-
-    const id = uuidv4();
-
-    nativeCalls[id] = { resolve, reject };
-
-    if (!authInfo) {
-      console.error("Auth info is not available.");
-      return;
-    }
-
-    ws.send(
-      JSON.stringify({
-        id,
-        method,
-        data,
-        accessToken: authInfo.nlToken,
-      })
-    );
-  });
-};
-
-function getAuthInfo() {
-  let authInfo = null;
-  try {
-    authInfo = fs.readFileSync(constants.files.authFile, "utf8");
-    authInfo = JSON.parse(authInfo);
-  } catch (err) {
-    // ignore
-  }
-  return authInfo;
-}
-
-function retryLater() {
-  reconnecting = true;
-  retryHandler = setTimeout(() => {
-    reconnecting = false;
-    startWebsocket();
-  }, 1000);
-}
+const EventEmitter = require("events");
 
 function normalize(arg) {
   if (typeof arg != "string") return arg;
@@ -135,40 +23,160 @@ function getBinaryName(arch) {
   return constants.files.binaries[process.platform][arch];
 }
 
-function base64ToBytesArray(data) {
-  const binaryData = window.atob(data);
-  const len = binaryData.length;
-  const bytes = new Uint8Array(len);
-
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryData.charCodeAt(i);
-  }
-
-  return bytes.buffer;
-}
-
-function arrayBufferToBase64(data) {
-  let bytes = new Uint8Array(data);
-  let asciiStr = "";
-
-  for (let byte of bytes) {
-    asciiStr += String.fromCharCode(byte);
-  }
-
-  return window.btoa(asciiStr);
-}
-
-class NeutralinoApp {
+class NeutralinoApp extends EventEmitter {
   url = "";
   windowOptions = {};
+  ws = null;
+  retryHandler = null;
+  authInfo = null;
+  nativeCalls = {};
+  offlineMessageQueue = [];
 
   constructor({ url, windowOptions }) {
+    super();
     this.url = url;
     this.windowOptions = windowOptions;
   }
 
+  _startWebsocket = () => {
+    this.authInfo = this._getAuthInfo();
+  
+    if (!this.authInfo) {
+      this._retryLater();
+      return;
+    }
+    this.ws =
+      new WS(`ws://127.0.0.1:${this.authInfo.nlPort}?extensionId=js.neutralino.devtools
+                    &connectToken=${this.authInfo.nlConnectToken}`);
+  
+    this.ws.onerror = () => {
+      this._retryLater();
+    };
+  
+    this.ws.onopen = () => {
+      console.log("Connected with the application.");
+    };
+  
+    this.ws.onclose = () => {
+      console.log("Connection closed.");
+    };
+  
+    this.ws.onmessage = (e) => {
+      if (typeof e.data === "string") {
+        const message = JSON.parse(e.data);
+        console.log("Received message: ", message);
+  
+        if (message.id && message.id in this.nativeCalls) {
+          // Native call response
+          if (message.data?.error) {
+            this.nativeCalls[message.id].reject(message.data.error);
+            if (message.data.error.code == 'NE_RT_INVTOKN') {
+              // Invalid native method token
+              // handleNativeMethodTokenError();
+            }
+          }
+          else if (message.data?.success) {
+            this.nativeCalls[message.id]
+              .resolve(message.data.hasOwnProperty('returnValue') ? message.data.returnValue
+                : message.data);
+          }
+          delete this.nativeCalls[message.id];
+        }
+        else if(message.event) {
+          // Event from process
+          if(message.event == 'openedFile' && message?.data?.action == 'dataBinary') {
+              message.data.data = base64ToBytesArray(message.data.data);
+          }
+          this.emit(message.event, message.data);
+      }
+      }
+    }
+  };
+  
+  _stopWebsocket = () => {
+    if (this.retryHandler) {
+      clearTimeout(this.retryHandler);
+    }
+    if (this.ws) {
+      this.ws.close();
+      if (fs.existsSync(constants.files.authFile)) {
+        fs.unlinkSync(constants.files.authFile);
+      }
+    }
+  };
+  
+  _sendMessage = (method, data) => {
+    return new Promise((resolve, reject) => {
+      // if (this.ws?.readyState != WebSocket.OPEN) {
+      if (this.ws?.readyState != 1) {
+        this.offlineMessageQueue.push({ method, data, resolve, reject });
+        return;
+      }
+  
+      const id = uuidv4();
+  
+      this.nativeCalls[id] = { resolve, reject };
+  
+      if (!this.authInfo) {
+        console.error("Auth info is not available.");
+        return;
+      }
+  
+      this.ws.send(
+        JSON.stringify({
+          id,
+          method,
+          data,
+          accessToken: this.authInfo.nlToken,
+        })
+      );
+    });
+  };
+
+  _getAuthInfo() {
+    let authInfo = null;
+    try {
+      authInfo = fs.readFileSync(constants.files.authFile, "utf8");
+      authInfo = JSON.parse(authInfo);
+    } catch (err) {
+      // ignore
+    }
+    return authInfo;
+  }
+
+  _retryLater() {
+    this.reconnecting = true;
+    this.retryHandler = setTimeout(() => {
+      this.reconnecting = false;
+      this._startWebsocket();
+    }, 1000);
+  }
+
+  _base64ToBytesArray(data) {
+    const binaryData = window.atob(data);
+    const len = binaryData.length;
+    const bytes = new Uint8Array(len);
+  
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryData.charCodeAt(i);
+    }
+  
+    return bytes.buffer;
+  }
+  
+  _arrayBufferToBase64(data) {
+    let bytes = new Uint8Array(data);
+    let asciiStr = "";
+  
+    for (let byte of bytes) {
+      asciiStr += String.fromCharCode(byte);
+    }
+  
+    return window.btoa(asciiStr);
+  }
+
   init() {
-    startWebsocket();
+    this._startWebsocket();
 
     const EXEC_PERMISSION = 0o755;
 
@@ -219,7 +227,7 @@ class NeutralinoApp {
         console.warn(runnerMsg);
       }
 
-      stopWebsocket();
+      this._stopWebsocket();
 
       if (this.windowOptions && this.windowOptions.exitProcessOnClose) {
         process.exit(code);
@@ -228,46 +236,46 @@ class NeutralinoApp {
   }
 
   exit(code) {
-    return sendMessage("app.exit", { code });
+    return this._sendMessage("app.exit", { code });
   }
   killProcess() {
-    return sendMessage("app.killProcess");
+    return this._sendMessage("app.killProcess");
   }
   getConfig() {
-    return sendMessage("app.getConfig");
+    return this._sendMessage("app.getConfig");
   }
 
   broadcast(event, data) {
-    return sendMessage("app.broadcast", { event, data });
+    return this._sendMessage("app.broadcast", { event, data });
   }
 
   readProcessInput(readAll) {
-    return sendMessage("app.readProcessInput", { readAll });
+    return this._sendMessage("app.readProcessInput", { readAll });
   }
 
   writeProcessOutput(data) {
-    return sendMessage("app.writeProcessOutput", { data });
+    return this._sendMessage("app.writeProcessOutput", { data });
   }
 
   writeProcessError(data) {
-    return sendMessage("app.writeProcessError", { data });
+    return this._sendMessage("app.writeProcessError", { data });
   }
 
   clipboard = {
     getFormat() {
-      return sendMessage("clipboard.getFormat");
+      return this._sendMessage("clipboard.getFormat");
     },
 
     readText() {
-      return sendMessage("clipboard.readText");
+      return this._sendMessage("clipboard.readText");
     },
 
     readImage() {
       return new Promise((resolve, reject) => {
-        sendMessage("clipboard.readImage")
+        this._sendMessage("clipboard.readImage")
           .then((image) => {
             if (image) {
-              image.data = base64ToBytesArray(image.data);
+              image.data = this._base64ToBytesArray(image.data);
             }
             resolve(image);
           })
@@ -278,113 +286,113 @@ class NeutralinoApp {
     },
 
     writeText(data) {
-      return sendMessage("clipboard.writeText", { data });
+      return this._sendMessage("clipboard.writeText", { data });
     },
 
     writeImage(image) {
       const props = { ...image };
       if (image?.data) {
-        props.data = arrayBufferToBase64(image.data);
+        props.data = _arrayBufferToBase64(image.data);
       }
-      return sendMessage("clipboard.writeImage", props);
+      return this._sendMessage("clipboard.writeImage", props);
     },
 
     clear() {
-      return sendMessage("clipboard.clear");
+      return this._sendMessage("clipboard.clear");
     },
   };
 
   computer = {
     getMemoryInfo() {
-      return sendMessage("computer.getMemoryInfo");
+      return this._sendMessage("computer.getMemoryInfo");
     },
     getArch() {
-      return sendMessage("computer.getArch");
+      return this._sendMessage("computer.getArch");
     },
     getKernelInfo() {
-      return sendMessage("computer.getKernelInfo");
+      return this._sendMessage("computer.getKernelInfo");
     },
     getOSInfo() {
-      return sendMessage("computer.getOSInfo");
+      return this._sendMessage("computer.getOSInfo");
     },
     getCPUInfo() {
-      return sendMessage("computer.getCPUInfo");
+      return this._sendMessage("computer.getCPUInfo");
     },
     getDisplays() {
-      return sendMessage("computer.getDisplays");
+      return this._sendMessage("computer.getDisplays");
     },
     getMousePosition() {
-      return sendMessage("computer.getMousePosition");
+      return this._sendMessage("computer.getMousePosition");
     },
   };
 
   custom = {
     getMethods() {
-      return sendMessage('custom.getMethods');
+      return this._sendMessage('custom.getMethods');
     }
   }
 
   debug = {
     log(message, type) {
-      return sendMessage('debug.log', { message, type });
+      return this._sendMessage('debug.log', { message, type });
     }
   }
 
   events = {
     broadcast(event, data) {
-      return sendMessage('events.broadcast', { event, data });
+      return this._sendMessage('events.broadcast', { event, data });
     }
   };
 
   extensions = {
     broadcast(event, data) {
-      return sendMessage('extensions.broadcast', { event, data });
+      return this._sendMessage('extensions.broadcast', { event, data });
     },
     getStats() {
-      return sendMessage('extensions.getStats');
+      return this._sendMessage('extensions.getStats');
     }
   };
 
   filesystem = {
     createDirectory(path) {
-      return sendMessage('filesystem.createDirectory', { path });
+      return this._sendMessage('filesystem.createDirectory', { path });
     },
 
     remove(path) {
-      return sendMessage('filesystem.remove', { path });
+      return this._sendMessage('filesystem.remove', { path });
     },
 
     writeFile(path, data) {
-      return sendMessage('filesystem.writeFile', { path, data });
+      return this._sendMessage('filesystem.writeFile', { path, data });
     },
 
     appendFile(path, data) {
-      return sendMessage('filesystem.appendFile', { path, data });
+      return this._sendMessage('filesystem.appendFile', { path, data });
     },
 
     writeBinaryFile(path, data) {
-      return sendMessage('filesystem.writeBinaryFile', {
+      return this._sendMessage('filesystem.writeBinaryFile', {
         path,
-        data: arrayBufferToBase64(data)
+        data: _arrayBufferToBase64(data)
       });
     },
 
     appendBinaryFile(path, data) {
-      return sendMessage('filesystem.appendBinaryFile', {
+      return this._sendMessage('filesystem.appendBinaryFile', {
         path,
-        data: arrayBufferToBase64(data)
+        data: _arrayBufferToBase64(data)
       });
     },
 
     readFile(path, options) {
-      return sendMessage('filesystem.readFile', { path, ...options });
+      return this._sendMessage('filesystem.readFile', { path, ...options });
     },
 
     readBinaryFile(path, options) {
       return new Promise((resolve, reject) => {
-        sendMessage('filesystem.readBinaryFile', { path, ...options })
+        this._sendMessage('filesystem.readBinaryFile', { path, ...options })
           .then((base64Data) => {
-            resolve(base64ToBytesArray(base64Data));
+            resolve(this._base64ToBytesArray(base64Data));
           })
           .catch((error) => {
             reject(error);
@@ -393,182 +401,182 @@ class NeutralinoApp {
     },
 
     openFile(path) {
-      return sendMessage('filesystem.openFile', { path });
+      return this._sendMessage('filesystem.openFile', { path });
     },
 
     createWatcher(path) {
-      return sendMessage('filesystem.createWatcher', { path });
+      return this._sendMessage('filesystem.createWatcher', { path });
     },
 
     removeWatcher(id) {
-      return sendMessage('filesystem.removeWatcher', { id });
+      return this._sendMessage('filesystem.removeWatcher', { id });
     },
 
     getWatchers() {
-      return sendMessage('filesystem.getWatchers');
+      return this._sendMessage('filesystem.getWatchers');
     },
 
     updateOpenedFile(id, event, data) {
-      return sendMessage('filesystem.updateOpenedFile', { id, event, data });
+      return this._sendMessage('filesystem.updateOpenedFile', { id, event, data });
     },
 
     getOpenedFileInfo(id) {
-      return sendMessage('filesystem.getOpenedFileInfo', { id });
+      return this._sendMessage('filesystem.getOpenedFileInfo', { id });
     },
 
     readDirectory(path, options) {
-      return sendMessage('filesystem.readDirectory', { path, ...options });
+      return this._sendMessage('filesystem.readDirectory', { path, ...options });
     },
 
     copy(source, destination) {
-      return sendMessage('filesystem.copy', { source, destination });
+      return this._sendMessage('filesystem.copy', { source, destination });
     },
 
     move(source, destination) {
-      return sendMessage('filesystem.move', { source, destination });
+      return this._sendMessage('filesystem.move', { source, destination });
     },
 
     getStats(path) {
-      return sendMessage('filesystem.getStats', { path });
+      return this._sendMessage('filesystem.getStats', { path });
     }
   };
 
   storage = {
     setData(key, data) {
-      return sendMessage('storage.setData', { key, data });
+      return this._sendMessage('storage.setData', { key, data });
     },
 
     getData(key) {
-      return sendMessage('storage.getData', { key });
+      return this._sendMessage('storage.getData', { key });
     },
 
     getKeys() {
-      return sendMessage('storage.getKeys');
+      return this._sendMessage('storage.getKeys');
     }
   };
 
   os = {
     execCommand(command, options) {
-      return sendMessage('os.execCommand', { command, ...options });
+      return this._sendMessage('os.execCommand', { command, ...options });
     },
 
     spawnProcess(command, cwd) {
-      return sendMessage('os.spawnProcess', { command, cwd });
+      return this._sendMessage('os.spawnProcess', { command, cwd });
     },
 
     updateSpawnedProcess(id, event, data) {
-      return sendMessage('os.updateSpawnedProcess', { id, event, data });
+      return this._sendMessage('os.updateSpawnedProcess', { id, event, data });
     },
 
     getSpawnedProcesses() {
-      return sendMessage('os.getSpawnedProcesses');
+      return this._sendMessage('os.getSpawnedProcesses');
     },
 
     getEnv(key) {
-      return sendMessage('os.getEnv', { key });
+      return this._sendMessage('os.getEnv', { key });
     },
 
     getEnvs() {
-      return sendMessage('os.getEnvs');
+      return this._sendMessage('os.getEnvs');
     },
 
     showOpenDialog(title, options) {
-      return sendMessage('os.showOpenDialog', { title, ...options });
+      return this._sendMessage('os.showOpenDialog', { title, ...options });
     },
 
     showFolderDialog(title, options) {
-      return sendMessage('os.showFolderDialog', { title, ...options });
+      return this._sendMessage('os.showFolderDialog', { title, ...options });
     },
 
     showSaveDialog(title, options) {
-      return sendMessage('os.showSaveDialog', { title, ...options });
+      return this._sendMessage('os.showSaveDialog', { title, ...options });
     },
 
     showNotification(title, content, icon) {
-      return sendMessage('os.showNotification', { title, content, icon });
+      return this._sendMessage('os.showNotification', { title, content, icon });
     },
 
     showMessageBox(title, content, choice, icon) {
-      return sendMessage('os.showMessageBox', { title, content, choice, icon });
+      return this._sendMessage('os.showMessageBox', { title, content, choice, icon });
     },
 
     setTray(options) {
-      return sendMessage('os.setTray', options);
+      return this._sendMessage('os.setTray', options);
     },
 
     open(url) {
-      return sendMessage('os.open', { url });
+      return this._sendMessage('os.open', { url });
     },
 
     getPath(name) {
-      return sendMessage('os.getPath', { name });
+      return this._sendMessage('os.getPath', { name });
     },
 
   }
 
   window = {
     setTitle(title) {
-      return sendMessage('window.setTitle', { title });
+      return this._sendMessage('window.setTitle', { title });
     },
 
     getTitle() {
-      return sendMessage('window.getTitle');
+      return this._sendMessage('window.getTitle');
     },
 
     maximize() {
-      return sendMessage('window.maximize');
+      return this._sendMessage('window.maximize');
     },
 
     unmaximize() {
-      return sendMessage('window.unmaximize');
+      return this._sendMessage('window.unmaximize');
     },
 
     isMaximized() {
-      return sendMessage('window.isMaximized');
+      return this._sendMessage('window.isMaximized');
     },
 
     minimize() {
-      return sendMessage('window.minimize');
+      return this._sendMessage('window.minimize');
     },
 
     setFullScreen() {
-      return sendMessage('window.setFullScreen');
+      return this._sendMessage('window.setFullScreen');
     },
 
     exitFullScreen() {
-      return sendMessage('window.exitFullScreen');
+      return this._sendMessage('window.exitFullScreen');
     },
 
     isFullScreen() {
-      return sendMessage('window.isFullScreen');
+      return this._sendMessage('window.isFullScreen');
     },
 
     show() {
-      return sendMessage('window.show');
+      return this._sendMessage('window.show');
     },
 
     hide() {
-      return sendMessage('window.hide');
+      return this._sendMessage('window.hide');
     },
 
     isVisible() {
-      return sendMessage('window.isVisible');
+      return this._sendMessage('window.isVisible');
     },
 
     focus() {
-      return sendMessage('window.focus');
+      return this._sendMessage('window.focus');
     },
 
     setIcon(icon) {
-      return sendMessage('window.setIcon', { icon });
+      return this._sendMessage('window.setIcon', { icon });
     },
 
     move(x, y) {
-      return sendMessage('window.move', { x, y });
+      return this._sendMessage('window.move', { x, y });
     },
 
     center() {
-      return sendMessage('window.center');
+      return this._sendMessage('window.center');
     },
 
     setSize(options) {
@@ -577,7 +585,7 @@ class NeutralinoApp {
 
         options = { ...sizeOptions, ...options }; // merge prioritizing options arg
 
-        sendMessage('window.setSize', options)
+        this._sendMessage('window.setSize', options)
           .then((response) => {
             resolve(response);
           })
@@ -588,15 +596,15 @@ class NeutralinoApp {
     },
 
     getSize() {
-      return sendMessage('window.getSize');
+      return this._sendMessage('window.getSize');
     },
 
     getPosition() {
-      return sendMessage('window.getPosition');
+      return this._sendMessage('window.getPosition');
     },
 
     setAlwaysOnTop(onTop) {
-      return sendMessage('window.setAlwaysOnTop', { onTop });
+      return this._sendMessage('window.setAlwaysOnTop', { onTop });
     },
 
     create: async (url, options) => {

@@ -1,4 +1,5 @@
 {
+  "name": "node-neutralino",
   "package-name": "node-neutralino",
   "version": "1.0.0",
   "description": "wrapper project for neutralinojs backend app",

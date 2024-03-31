@@ -22,9 +22,6 @@ app.on("backend.maximize", ()=>{
 To see the project in working, you can also get started with premade template
 ```bash
 neu create testapp --template viralgupta/node-neutralinojs-template
-```
-
-```bash
-cd testapp
+cd testapp/backend
 node backend/index.js
 ```

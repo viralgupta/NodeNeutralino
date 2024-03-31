@@ -6,7 +6,7 @@ Steps to use:
 npm i node-neutralino
 ```
 
-index.js
+backend/index.js
 ```javascript
 const NeutralinoApp = require("node-neutralino")
 
@@ -20,6 +20,11 @@ app.on("backend.maximize", ()=>{
 ```
 
 To see the project in working, you can also get started with premade template
-```
+```bash
 neu create testapp --template viralgupta/node-neutralinojs-template
+```
+
+```bash
+cd testapp
+node backend/index.js
 ```

@@ -218,6 +218,8 @@ class NeutralinoApp extends EventEmitter {
 
     const neuProcess = spawn(binaryPath, args.split(` `), { stdio: "inherit" });
 
+    const stopwebsocket = this._stopWebsocket;
+
     neuProcess.on("exit", function (code) {
       let statusCodeMsg = code ? `error code ${code}` : `success code 0`;
       let runnerMsg = `${binaryName} was stopped with ${statusCodeMsg}`;
@@ -227,7 +229,7 @@ class NeutralinoApp extends EventEmitter {
         console.warn(runnerMsg);
       }
 
-      this._stopWebsocket();
+      stopwebsocket();
 
       if (this.windowOptions && this.windowOptions.exitProcessOnClose) {
         process.exit(code);

@@ -1,7 +1,7 @@
 {
   "name": "node-neutralino",
   "package-name": "node-neutralino",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "wrapper project for neutralinojs backend app",
   "entry point": "./build/index.js",
   "main": "./build/index.js",

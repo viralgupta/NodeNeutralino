@@ -264,15 +264,15 @@ class NeutralinoApp extends EventEmitter {
   }
 
   clipboard = {
-    getFormat() {
+    getFormat:() => {
       return this._sendMessage("clipboard.getFormat");
     },
 
-    readText() {
+    readText:() => {
       return this._sendMessage("clipboard.readText");
     },
 
-    readImage() {
+    readImage:() => {
       return new Promise((resolve, reject) => {
         this._sendMessage("clipboard.readImage")
           .then((image) => {
@@ -287,11 +287,11 @@ class NeutralinoApp extends EventEmitter {
       });
     },
 
-    writeText(data) {
+    writeText:(data) => {
       return this._sendMessage("clipboard.writeText", { data });
     },
 
-    writeImage(image) {
+    writeImage:(image) => {
       const props = { ...image };
       if (image?.data) {
         props.data = _arrayBufferToBase64(image.data);
@@ -299,55 +299,55 @@ class NeutralinoApp extends EventEmitter {
       return this._sendMessage("clipboard.writeImage", props);
     },
 
-    clear() {
+    clear:() => {
       return this._sendMessage("clipboard.clear");
     },
   };
 
   computer = {
-    getMemoryInfo() {
+    getMemoryInfo:() => {
       return this._sendMessage("computer.getMemoryInfo");
     },
-    getArch() {
+    getArch:() => {
       return this._sendMessage("computer.getArch");
     },
-    getKernelInfo() {
+    getKernelInfo:() => {
       return this._sendMessage("computer.getKernelInfo");
     },
-    getOSInfo() {
+    getOSInfo:() => {
       return this._sendMessage("computer.getOSInfo");
     },
-    getCPUInfo() {
+    getCPUInfo:() => {
       return this._sendMessage("computer.getCPUInfo");
     },
-    getDisplays() {
+    getDisplays:() => {
       return this._sendMessage("computer.getDisplays");
     },
-    getMousePosition() {
+    getMousePosition:() => {
       return this._sendMessage("computer.getMousePosition");
     },
   };
 
   custom = {
-    getMethods() {
+    getMethods:() => {
       return this._sendMessage('custom.getMethods');
     }
   }
 
   debug = {
-    log(message, type) {
+    log:(message, type) => {
       return this._sendMessage('debug.log', { message, type });
     }
   }
 
   events = {
-    broadcast(event, data) {
+    broadcast:(event, data) => {
       return this._sendMessage('events.broadcast', { event, data });
     }
   };
 
   extensions = {
-    broadcast(event, data) {
+    broadcast:(event, data) => {
       return this._sendMessage('extensions.broadcast', { event, data });
     },
     getStats() {
@@ -356,41 +356,41 @@ class NeutralinoApp extends EventEmitter {
   };
 
   filesystem = {
-    createDirectory(path) {
+    createDirectory:(path) => {
       return this._sendMessage('filesystem.createDirectory', { path });
     },
 
-    remove(path) {
+    remove:(path) => {
       return this._sendMessage('filesystem.remove', { path });
     },
 
-    writeFile(path, data) {
+    writeFile:(path, data) => {
       return this._sendMessage('filesystem.writeFile', { path, data });
     },
 
-    appendFile(path, data) {
+    appendFile:(path, data) => {
       return this._sendMessage('filesystem.appendFile', { path, data });
     },
 
-    writeBinaryFile(path, data) {
+    writeBinaryFile:(path, data) => {
       return this._sendMessage('filesystem.writeBinaryFile', {
         path,
         data: _arrayBufferToBase64(data)
       });
     },
 
-    appendBinaryFile(path, data) {
+    appendBinaryFile:(path, data) => {
       return this._sendMessage('filesystem.appendBinaryFile', {
         path,
         data: _arrayBufferToBase64(data)
       });
     },
 
-    readFile(path, options) {
+    readFile:(path, options) => {
       return this._sendMessage('filesystem.readFile', { path, ...options });
     },
 
-    readBinaryFile(path, options) {
+    readBinaryFile:(path, options) => {
       return new Promise((resolve, reject) => {
         this._sendMessage('filesystem.readBinaryFile', { path, ...options })
           .then((base64Data) => {
@@ -402,186 +402,186 @@ class NeutralinoApp extends EventEmitter {
       });
     },
 
-    openFile(path) {
+    openFile:(path) => {
       return this._sendMessage('filesystem.openFile', { path });
     },
 
-    createWatcher(path) {
+    createWatcher:(path) => {
       return this._sendMessage('filesystem.createWatcher', { path });
     },
 
-    removeWatcher(id) {
+    removeWatcher:(id) => {
       return this._sendMessage('filesystem.removeWatcher', { id });
     },
 
-    getWatchers() {
+    getWatchers:() => {
       return this._sendMessage('filesystem.getWatchers');
     },
 
-    updateOpenedFile(id, event, data) {
+    updateOpenedFile:(id, event, data) => {
       return this._sendMessage('filesystem.updateOpenedFile', { id, event, data });
     },
 
-    getOpenedFileInfo(id) {
+    getOpenedFileInfo:(id) => {
       return this._sendMessage('filesystem.getOpenedFileInfo', { id });
     },
 
-    readDirectory(path, options) {
+    readDirectory:(path, options) => {
       return this._sendMessage('filesystem.readDirectory', { path, ...options });
     },
 
-    copy(source, destination) {
+    copy:(source, destination) => {
       return this._sendMessage('filesystem.copy', { source, destination });
     },
 
-    move(source, destination) {
+    move:(source, destination) => {
       return this._sendMessage('filesystem.move', { source, destination });
     },
 
-    getStats(path) {
+    getStats:(path) => {
       return this._sendMessage('filesystem.getStats', { path });
     }
   };
 
   storage = {
-    setData(key, data) {
+    setData:(key, data) => {
       return this._sendMessage('storage.setData', { key, data });
     },
 
-    getData(key) {
+    getData:(key) => {
       return this._sendMessage('storage.getData', { key });
     },
 
-    getKeys() {
+    getKeys:() => {
       return this._sendMessage('storage.getKeys');
     }
   };
 
   os = {
-    execCommand(command, options) {
+    execCommand:(command, options) => {
       return this._sendMessage('os.execCommand', { command, ...options });
     },
 
-    spawnProcess(command, cwd) {
+    spawnProcess:(command, cwd) => {
       return this._sendMessage('os.spawnProcess', { command, cwd });
     },
 
-    updateSpawnedProcess(id, event, data) {
+    updateSpawnedProcess:(id, event, data) => {
       return this._sendMessage('os.updateSpawnedProcess', { id, event, data });
     },
 
-    getSpawnedProcesses() {
+    getSpawnedProcesses:() => {
       return this._sendMessage('os.getSpawnedProcesses');
     },
 
-    getEnv(key) {
+    getEnv:(key) => {
       return this._sendMessage('os.getEnv', { key });
     },
 
-    getEnvs() {
+    getEnvs:() => {
       return this._sendMessage('os.getEnvs');
     },
 
-    showOpenDialog(title, options) {
+    showOpenDialog:(title, options) => {
       return this._sendMessage('os.showOpenDialog', { title, ...options });
     },
 
-    showFolderDialog(title, options) {
+    showFolderDialog:(title, options) => {
       return this._sendMessage('os.showFolderDialog', { title, ...options });
     },
 
-    showSaveDialog(title, options) {
+    showSaveDialog:(title, options) => {
       return this._sendMessage('os.showSaveDialog', { title, ...options });
     },
 
-    showNotification(title, content, icon) {
+    showNotification:(title, content, icon) => {
       return this._sendMessage('os.showNotification', { title, content, icon });
     },
 
-    showMessageBox(title, content, choice, icon) {
+    showMessageBox:(title, content, choice, icon) => {
       return this._sendMessage('os.showMessageBox', { title, content, choice, icon });
     },
 
-    setTray(options) {
+    setTray:(options) => {
       return this._sendMessage('os.setTray', options);
     },
 
-    open(url) {
+    open:(url) => {
       return this._sendMessage('os.open', { url });
     },
 
-    getPath(name) {
+    getPath:(name) => {
       return this._sendMessage('os.getPath', { name });
     },
 
   }
 
   window = {
-    setTitle(title) {
+    setTitle:(title) => {
       return this._sendMessage('window.setTitle', { title });
     },
 
-    getTitle() {
+    getTitle:() => {
       return this._sendMessage('window.getTitle');
     },
 
-    maximize() {
+    maximize:() => {
       return this._sendMessage('window.maximize');
     },
 
-    unmaximize() {
+    unmaximize:() => {
       return this._sendMessage('window.unmaximize');
     },
 
-    isMaximized() {
+    isMaximized:() => {
       return this._sendMessage('window.isMaximized');
     },
 
-    minimize() {
+    minimize:() => {
       return this._sendMessage('window.minimize');
     },
 
-    setFullScreen() {
+    setFullScreen:() => {
       return this._sendMessage('window.setFullScreen');
     },
 
-    exitFullScreen() {
+    exitFullScreen:() => {
       return this._sendMessage('window.exitFullScreen');
     },
 
-    isFullScreen() {
+    isFullScreen:() => {
       return this._sendMessage('window.isFullScreen');
     },
 
-    show() {
+    show:() => {
       return this._sendMessage('window.show');
     },
 
-    hide() {
+    hide:() => {
       return this._sendMessage('window.hide');
     },
 
-    isVisible() {
+    isVisible:() => {
       return this._sendMessage('window.isVisible');
     },
 
-    focus() {
+    focus:() => {
       return this._sendMessage('window.focus');
     },
 
-    setIcon(icon) {
+    setIcon:(icon) => {
       return this._sendMessage('window.setIcon', { icon });
     },
 
-    move(x, y) {
+    move:(x, y) => {
       return this._sendMessage('window.move', { x, y });
     },
 
-    center() {
+    center:() => {
       return this._sendMessage('window.center');
     },
 
-    setSize(options) {
+    setSize:(options) => {
       return new Promise(async (resolve, reject) => {
         let sizeOptions = await getSize();
 
@@ -597,15 +597,15 @@ class NeutralinoApp extends EventEmitter {
       });
     },
 
-    getSize() {
+    getSize:() => {
       return this._sendMessage('window.getSize');
     },
 
-    getPosition() {
+    getPosition:() => {
       return this._sendMessage('window.getPosition');
     },
 
-    setAlwaysOnTop(onTop) {
+    setAlwaysOnTop:(onTop) => {
       return this._sendMessage('window.setAlwaysOnTop', { onTop });
     },
 

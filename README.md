@@ -1,4 +1,4 @@
-Use Neutralinojs Apps from backend in nodejs
+Use Nodejs as backend for your Neutralinojs Apps
 
 Steps to use:
 

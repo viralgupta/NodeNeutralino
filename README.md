@@ -23,5 +23,7 @@ To see the project in working, you can also get started with premade template
 ```bash
 neu create testapp --template viralgupta/node-neutralinojs-template
 cd testapp/backend
+npm install
+cd ..
 node backend/index.js
 ```
